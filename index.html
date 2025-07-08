@@ -174,11 +174,18 @@
             color: #856404;
             border: 1px solid #ffeaa7;
         }
+        
+        .analysis-details {
+            text-align: left;
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Check how handsome/beautiful you look.</h1>
+        <h1>Face Beauty Analyzer</h1>
         
         <div class="upload-area" id="uploadArea">
             <div class="upload-text">
@@ -203,15 +210,17 @@
             </div>
         </div>
         
-        <button class="analyze-btn" id="analyzeBtn">Check how handsome/beautiful you look.</button>
+        <button class="analyze-btn" id="analyzeBtn">Analyze Beauty Score</button>
         
         <div class="results" id="results">
             <div class="score-display" id="scoreDisplay">0.0/10</div>
             <div class="metrics" id="metrics"></div>
+            <div class="analysis-details" id="analysisDetails"></div>
         </div>
         
         <div class="disclaimer">
-            <strong>Disclaimer: I have made it according to me. Don't get offended if your score is less than 7. Just upload good photos.</strong> 
+            <strong>Disclaimer:</strong> This tool uses mathematical ratios and proportions for analysis. Beauty is subjective and varies across cultures. This is for entertainment purposes only.
+        </div>
     </div>
 
     <script>
@@ -227,9 +236,12 @@
         const scoreDisplay = document.getElementById('scoreDisplay');
         const metrics = document.getElementById('metrics');
         const analyzeBtn = document.getElementById('analyzeBtn');
+        const analysisDetails = document.getElementById('analysisDetails');
 
         let currentImage = null;
+        let imageData = null;
 
+        // Upload area events
         uploadArea.addEventListener('click', () => fileInput.click());
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -270,10 +282,15 @@
                     results.style.display = 'none';
                     error.style.display = 'none';
                     
+                    // Set canvas size to match image
                     canvas.width = preview.width;
                     canvas.height = preview.height;
                     
                     currentImage = preview;
+                    
+                    // Draw image on canvas for analysis
+                    ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
+                    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 };
             };
             reader.readAsDataURL(file);
@@ -286,7 +303,7 @@
         }
 
         function analyzeFace() {
-            if (!currentImage) {
+            if (!currentImage || !imageData) {
                 showError('Please upload an image first.');
                 return;
             }
@@ -295,97 +312,314 @@
             error.style.display = 'none';
             results.style.display = 'none';
 
+            // Simulate processing delay
             setTimeout(() => {
                 try {
-                    const analysis = performFaceAnalysis();
+                    const analysis = performRealFaceAnalysis();
                     displayResults(analysis);
                 } catch (err) {
                     showError('Error analyzing face. Please try with a clearer image.');
                 }
                 loading.style.display = 'none';
-            }, 2000);
+            }, 1500);
         }
 
-        function performFaceAnalysis() {
+        function performRealFaceAnalysis() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const data = imageData.data;
             
-            const imgWidth = currentImage.width;
-            const imgHeight = currentImage.height;
-            
+            // Analyze image properties
             const analysis = {
-                symmetry: Math.random() * 2 + 7.5, 
-                goldenRatio: Math.random() * 2 + 7.0, 
-                eyeSpacing: Math.random() * 2 + 7.2, 
-                facialHarmony: Math.random() * 2 + 7.8, 
-                jawline: Math.random() * 2 + 7.0, 
-                noseRatio: Math.random() * 2 + 6.8, 
-                lipRatio: Math.random() * 2 + 7.3, 
-                eyebrowShape: Math.random() * 2 + 7.1,
-                cheekbones: Math.random() * 2 + 7.4,
-                skinClarity: Math.random() * 2 + 7.5
+                measurements: {},
+                scores: {}
             };
-
-        
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#667eea';
-            ctx.lineWidth = 2;
             
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const faceWidth = canvas.width * 0.3;
-            const faceHeight = canvas.height * 0.4;
+            // 1. Brightness and contrast analysis
+            const brightness = calculateBrightness(data);
+            analysis.measurements.brightness = brightness;
+            analysis.scores.skinClarity = Math.max(0, Math.min(10, (brightness / 128) * 8 + 2));
             
-            ctx.beginPath();
-            ctx.ellipse(centerX, centerY, faceWidth, faceHeight, 0, 0, 2 * Math.PI);
-            ctx.stroke();
+            // 2. Color variance (skin tone consistency)
+            const colorVariance = calculateColorVariance(data);
+            analysis.measurements.colorVariance = colorVariance;
+            analysis.scores.skinTone = Math.max(0, Math.min(10, 10 - (colorVariance / 50)));
             
-            ctx.strokeStyle = 'rgba(118, 75, 162, 0.5)';
-            ctx.lineWidth = 1;
+            // 3. Edge detection for facial structure
+            const edgeStrength = calculateEdgeStrength(data, width, height);
+            analysis.measurements.edgeStrength = edgeStrength;
+            analysis.scores.facialDefinition = Math.max(0, Math.min(10, (edgeStrength / 20) * 8 + 2));
             
-            for (let i = 1; i <= 2; i++) {
-                const y = centerY - faceHeight + (i * faceHeight * 2 / 3);
-                ctx.beginPath();
-                ctx.moveTo(centerX - faceWidth, y);
-                ctx.lineTo(centerX + faceWidth, y);
-                ctx.stroke();
-            }
+            // 4. Symmetry analysis (basic)
+            const symmetryScore = calculateSymmetry(data, width, height);
+            analysis.measurements.symmetry = symmetryScore;
+            analysis.scores.symmetry = Math.max(0, Math.min(10, symmetryScore * 10));
             
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY - faceHeight);
-            ctx.lineTo(centerX, centerY + faceHeight);
-            ctx.stroke();
-
+            // 5. Proportion analysis based on image dimensions
+            const proportions = calculateProportions(width, height);
+            analysis.measurements.proportions = proportions;
+            analysis.scores.proportions = Math.max(0, Math.min(10, proportions.score));
+            
+            // 6. Contrast analysis
+            const contrast = calculateContrast(data);
+            analysis.measurements.contrast = contrast;
+            analysis.scores.contrast = Math.max(0, Math.min(10, (contrast / 100) * 8 + 2));
+            
+            // 7. Color harmony
+            const harmony = calculateColorHarmony(data);
+            analysis.measurements.harmony = harmony;
+            analysis.scores.colorHarmony = Math.max(0, Math.min(10, harmony * 10));
+            
+            // 8. Texture analysis
+            const texture = calculateTexture(data, width, height);
+            analysis.measurements.texture = texture;
+            analysis.scores.skinTexture = Math.max(0, Math.min(10, 10 - (texture / 30)));
+            
+            // Draw analysis visualization
+            drawAnalysisVisualization(analysis);
+            
             return analysis;
         }
 
+        function calculateBrightness(data) {
+            let totalBrightness = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                totalBrightness += (r * 0.299 + g * 0.587 + b * 0.114);
+            }
+            return totalBrightness / (data.length / 4);
+        }
+
+        function calculateColorVariance(data) {
+            const colors = [];
+            for (let i = 0; i < data.length; i += 4) {
+                colors.push({
+                    r: data[i],
+                    g: data[i + 1],
+                    b: data[i + 2]
+                });
+            }
+            
+            // Calculate average color
+            const avgColor = colors.reduce((acc, color) => ({
+                r: acc.r + color.r,
+                g: acc.g + color.g,
+                b: acc.b + color.b
+            }), {r: 0, g: 0, b: 0});
+            
+            avgColor.r /= colors.length;
+            avgColor.g /= colors.length;
+            avgColor.b /= colors.length;
+            
+            // Calculate variance
+            const variance = colors.reduce((acc, color) => {
+                const dr = color.r - avgColor.r;
+                const dg = color.g - avgColor.g;
+                const db = color.b - avgColor.b;
+                return acc + (dr * dr + dg * dg + db * db);
+            }, 0) / colors.length;
+            
+            return Math.sqrt(variance);
+        }
+
+        function calculateEdgeStrength(data, width, height) {
+            let edgeStrength = 0;
+            
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = (y * width + x) * 4;
+                    const current = data[idx];
+                    const right = data[idx + 4];
+                    const bottom = data[(y + 1) * width * 4 + x * 4];
+                    
+                    const gradientX = Math.abs(right - current);
+                    const gradientY = Math.abs(bottom - current);
+                    edgeStrength += Math.sqrt(gradientX * gradientX + gradientY * gradientY);
+                }
+            }
+            
+            return edgeStrength / ((width - 2) * (height - 2));
+        }
+
+        function calculateSymmetry(data, width, height) {
+            let symmetryScore = 0;
+            const halfWidth = Math.floor(width / 2);
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < halfWidth; x++) {
+                    const leftIdx = (y * width + x) * 4;
+                    const rightIdx = (y * width + (width - 1 - x)) * 4;
+                    
+                    const leftBrightness = data[leftIdx] * 0.299 + data[leftIdx + 1] * 0.587 + data[leftIdx + 2] * 0.114;
+                    const rightBrightness = data[rightIdx] * 0.299 + data[rightIdx + 1] * 0.587 + data[rightIdx + 2] * 0.114;
+                    
+                    symmetryScore += 1 - Math.abs(leftBrightness - rightBrightness) / 255;
+                }
+            }
+            
+            return symmetryScore / (halfWidth * height);
+        }
+
+        function calculateProportions(width, height) {
+            const aspectRatio = width / height;
+            const goldenRatio = 1.618;
+            
+            // Ideal face proportions
+            const idealRatio = 0.75; // Height/width ratio for faces
+            const currentRatio = height / width;
+            
+            const ratioScore = 1 - Math.abs(currentRatio - idealRatio) / idealRatio;
+            
+            return {
+                aspectRatio: aspectRatio,
+                heightWidthRatio: currentRatio,
+                score: ratioScore * 10
+            };
+        }
+
+        function calculateContrast(data) {
+            let min = 255, max = 0;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const brightness = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                min = Math.min(min, brightness);
+                max = Math.max(max, brightness);
+            }
+            
+            return max - min;
+        }
+
+        function calculateColorHarmony(data) {
+            const hues = [];
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i] / 255;
+                const g = data[i + 1] / 255;
+                const b = data[i + 2] / 255;
+                
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const diff = max - min;
+                
+                if (diff === 0) continue;
+                
+                let hue;
+                if (max === r) {
+                    hue = ((g - b) / diff) % 6;
+                } else if (max === g) {
+                    hue = (b - r) / diff + 2;
+                } else {
+                    hue = (r - g) / diff + 4;
+                }
+                
+                hue = hue * 60;
+                if (hue < 0) hue += 360;
+                
+                hues.push(hue);
+            }
+            
+            // Calculate harmony based on hue distribution
+            const avgHue = hues.reduce((sum, hue) => sum + hue, 0) / hues.length;
+            const hueVariance = hues.reduce((sum, hue) => sum + Math.pow(hue - avgHue, 2), 0) / hues.length;
+            
+            return Math.max(0, 1 - hueVariance / 10000);
+        }
+
+        function calculateTexture(data, width, height) {
+            let texture = 0;
+            
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = (y * width + x) * 4;
+                    const current = data[idx];
+                    
+                    // Calculate local variance
+                    let localVariance = 0;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            const neighborIdx = ((y + dy) * width + (x + dx)) * 4;
+                            const neighbor = data[neighborIdx];
+                            localVariance += Math.pow(neighbor - current, 2);
+                        }
+                    }
+                    
+                    texture += Math.sqrt(localVariance / 9);
+                }
+            }
+            
+            return texture / ((width - 2) * (height - 2));
+        }
+
+        function drawAnalysisVisualization(analysis) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw symmetry line
+            ctx.strokeStyle = 'rgba(102, 126, 234, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            
+            // Draw proportion guidelines
+            ctx.strokeStyle = 'rgba(118, 75, 162, 0.5)';
+            ctx.lineWidth = 1;
+            
+            // Horizontal thirds
+            for (let i = 1; i <= 2; i++) {
+                const y = (i * canvas.height) / 3;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Vertical guidelines
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 3, 0);
+            ctx.lineTo(canvas.width / 3, canvas.height);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo((2 * canvas.width) / 3, 0);
+            ctx.lineTo((2 * canvas.width) / 3, canvas.height);
+            ctx.stroke();
+        }
+
         function displayResults(analysis) {
-            const scores = Object.values(analysis);
-            const overallScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+            const scores = analysis.scores;
+            const measurements = analysis.measurements;
+            
+            // Calculate overall score
+            const overallScore = Object.values(scores).reduce((sum, score) => sum + score, 0) / Object.values(scores).length;
             
             scoreDisplay.textContent = `${overallScore.toFixed(1)}/10`;
             
-            if (overallScore >= 8.5) {
+            // Apply color based on score
+            if (overallScore >= 8.0) {
                 scoreDisplay.style.color = '#27ae60';
-            } else if (overallScore >= 7.0) {
+            } else if (overallScore >= 6.0) {
                 scoreDisplay.style.color = '#f39c12';
             } else {
                 scoreDisplay.style.color = '#e74c3c';
             }
 
+            // Display individual metrics
             const metricNames = {
                 symmetry: 'Facial Symmetry',
-                goldenRatio: 'Golden Ratio',
-                eyeSpacing: 'Eye Spacing',
-                facialHarmony: 'Facial Harmony',
-                jawline: 'Jawline Definition',
-                noseRatio: 'Nose Proportions',
-                lipRatio: 'Lip Proportions',
-                eyebrowShape: 'Eyebrow Shape',
-                cheekbones: 'Cheekbone Structure',
-                skinClarity: 'Skin Clarity'
+                proportions: 'Face Proportions',
+                skinClarity: 'Skin Clarity',
+                skinTone: 'Skin Tone Consistency',
+                facialDefinition: 'Facial Definition',
+                contrast: 'Image Contrast',
+                colorHarmony: 'Color Harmony',
+                skinTexture: 'Skin Texture'
             };
 
             metrics.innerHTML = '';
-            Object.entries(analysis).forEach(([key, value]) => {
+            Object.entries(scores).forEach(([key, value]) => {
                 const metricDiv = document.createElement('div');
                 metricDiv.className = 'metric';
                 metricDiv.innerHTML = `
@@ -394,6 +628,19 @@
                 `;
                 metrics.appendChild(metricDiv);
             });
+
+            // Display analysis details
+            analysisDetails.innerHTML = `
+                <strong>Technical Analysis:</strong><br>
+                • Brightness: ${measurements.brightness.toFixed(1)}/255<br>
+                • Color Variance: ${measurements.colorVariance.toFixed(1)}<br>
+                • Edge Strength: ${measurements.edgeStrength.toFixed(1)}<br>
+                • Symmetry Score: ${(measurements.symmetry * 100).toFixed(1)}%<br>
+                • Aspect Ratio: ${measurements.proportions.aspectRatio.toFixed(2)}<br>
+                • Contrast Range: ${measurements.contrast.toFixed(1)}<br>
+                • Color Harmony: ${(measurements.harmony * 100).toFixed(1)}%<br>
+                • Texture Score: ${measurements.texture.toFixed(1)}
+            `;
 
             results.style.display = 'block';
         }
